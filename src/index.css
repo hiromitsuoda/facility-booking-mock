@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #f5eedc;
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium",
+      YuGothic, Meiryo, sans-serif;
+    font-size: 14px;
+    color: #333;
+  }
+}
+
+@layer components {
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #f1f1f1; }
+  ::-webkit-scrollbar-thumb { background: #aabfe1; border-radius: 3px; }
+
+  /* Calendar cell hover */
+  .cal-cell:hover {
+    background-color: #d5dff0;
+    cursor: pointer;
+  }
+  .cal-cell-today {
+    background-color: #f5d77a;
+  }
+  .cal-cell-selected {
+    background-color: #e8c254;
+  }
+  .cal-cell-other-month {
+    color: #aaa;
+    background-color: #f0ede6;
+  }
+}
