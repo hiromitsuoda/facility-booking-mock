@@ -124,7 +124,7 @@ export default function MiniCalendar({
             cell.month === TODAY.month &&
             cell.year === TODAY.year
 
-          let cellClass = 'text-[10px] py-1 text-center border-b border-r border-gray-100 transition-colors leading-none '
+          let cellClass = 'text-[10px] min-h-[32px] text-center border-b border-r border-gray-100 transition-colors leading-none flex items-center justify-center flex-col '
 
           if (cell.otherMonth || past) {
             cellClass += 'text-gray-300 cursor-default '

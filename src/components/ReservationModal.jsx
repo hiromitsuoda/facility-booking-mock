@@ -127,8 +127,8 @@ export default function ReservationModal({ date, facility, room, filters, onClos
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      {/* Modal — モバイルでフルスクリーン、PCでは中央配置 */}
+      <div className="relative bg-white w-full h-full sm:h-auto sm:rounded-lg shadow-2xl sm:max-w-lg sm:mx-4 sm:max-h-[90vh] overflow-y-auto">
         {/* Modal header */}
         <div className="bg-navy-800 text-white flex items-center justify-between px-5 py-3 rounded-t-lg">
           <div className="flex items-center gap-2 font-semibold">
@@ -185,7 +185,7 @@ export default function ReservationModal({ date, facility, room, filters, onClos
                   {TIME_SLOTS.map((ts) => (
                     <label
                       key={ts.id}
-                      className={`flex-1 border rounded-lg p-2.5 text-center cursor-pointer transition-all ${
+                      className={`flex-1 border rounded-lg p-3 text-center cursor-pointer transition-all min-h-[56px] flex flex-col items-center justify-center ${
                         form.timeSlot === ts.id
                           ? 'border-navy-600 bg-navy-50 text-navy-800'
                           : 'border-gray-300 hover:border-navy-300'
@@ -320,14 +320,14 @@ export default function ReservationModal({ date, facility, room, filters, onClos
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 py-2.5 rounded text-sm font-semibold transition-colors disabled:opacity-50"
+                className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 py-3 rounded text-sm font-semibold transition-colors disabled:opacity-50 min-h-[48px]"
               >
                 キャンセル
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 bg-navy-800 hover:bg-navy-700 text-white py-2.5 rounded text-sm font-semibold transition-colors disabled:opacity-60"
+                className="flex-1 bg-navy-800 hover:bg-navy-700 text-white py-3 rounded text-sm font-semibold transition-colors disabled:opacity-60 min-h-[48px]"
               >
                 {submitting ? '送信中...' : '予約申請する'}
               </button>

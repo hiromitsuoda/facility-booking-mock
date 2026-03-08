@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { QRCodeSVG } from 'qrcode.react'
 import {
   ShieldCheck,
   Trash2,
@@ -8,7 +9,12 @@ import {
   Inbox,
   ChevronDown,
   ChevronUp,
+  QrCode,
+  Copy,
+  Check,
 } from 'lucide-react'
+
+const APP_URL = 'https://facility-booking-mock.vercel.app/'
 
 const TIME_SLOT_LABELS = {
   morning: '午前（9:00〜12:00）',
@@ -26,6 +32,14 @@ export default function AdminPage({ onDeleted }) {
   const [confirmId, setConfirmId] = useState(null)
   const [sortKey, setSortKey] = useState('date')
   const [sortAsc, setSortAsc] = useState(true)
+  const [copied, setCopied] = useState(false)
+
+  function handleCopyURL() {
+    navigator.clipboard.writeText(APP_URL).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -126,9 +140,63 @@ export default function AdminPage({ onDeleted }) {
         </div>
       )}
 
-      {/* Table */}
+      {/* Mobile: card list */}
       {!loading && sorted.length > 0 && (
-        <div className="overflow-x-auto rounded border border-gray-200 shadow-sm">
+        <div className="md:hidden space-y-3 mb-4">
+          {sorted.map((r) => (
+            <div key={r.id} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <span className="font-bold text-navy-800">{r.date}</span>
+                  <span className="ml-2 text-xs text-gray-500">{TIME_SLOT_LABELS[r.time_slot] ?? r.time_slot}</span>
+                </div>
+                {confirmId === r.id ? null : (
+                  <button
+                    onClick={() => setConfirmId(r.id)}
+                    className="flex items-center gap-1 text-red-500 border border-red-300 rounded px-3 py-2 text-xs min-h-[44px]"
+                  >
+                    <Trash2 size={13} />削除
+                  </button>
+                )}
+              </div>
+              <div className="text-sm text-gray-700 space-y-0.5">
+                <div><span className="text-gray-400 text-xs">室場：</span>{r.room_name}</div>
+                <div><span className="text-gray-400 text-xs">氏名：</span>{r.user_name}</div>
+                <div><span className="text-gray-400 text-xs">電話：</span>{r.phone}</div>
+                <div><span className="text-gray-400 text-xs">目的：</span>{r.purpose}　{r.count}名</div>
+                {r.notes && <div><span className="text-gray-400 text-xs">備考：</span>{r.notes}</div>}
+              </div>
+              {confirmId === r.id && (
+                <div className="mt-3 bg-red-50 border border-red-200 rounded p-3 flex flex-col gap-2">
+                  <p className="text-xs text-red-700 font-medium flex items-center gap-1">
+                    <AlertTriangle size={13} />
+                    この予約を削除しますか？
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleDelete(r.id)}
+                      disabled={deletingId === r.id}
+                      className="flex-1 bg-red-600 text-white text-sm py-2.5 rounded font-semibold min-h-[44px] disabled:opacity-50"
+                    >
+                      {deletingId === r.id ? '削除中...' : '削除する'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmId(null)}
+                      className="flex-1 border border-gray-300 text-gray-600 text-sm py-2.5 rounded min-h-[44px]"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Desktop: table */}
+      {!loading && sorted.length > 0 && (
+        <div className="hidden md:block overflow-x-auto rounded border border-gray-200 shadow-sm">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-navy-800 text-white">
@@ -229,6 +297,32 @@ export default function AdminPage({ onDeleted }) {
           </table>
         </div>
       )}
+
+      {/* QR Code panel */}
+      <div className="mt-8 border border-gray-200 rounded-lg bg-white p-5 flex flex-col sm:flex-row items-center gap-6">
+        <div className="flex-shrink-0 p-2 border-2 border-gray-200 rounded-lg">
+          <QRCodeSVG value={APP_URL} size={120} bgColor="#ffffff" fgColor="#1e293b" level="M" />
+        </div>
+        <div className="flex-1 text-center sm:text-left">
+          <div className="flex items-center gap-2 justify-center sm:justify-start text-navy-800 font-bold mb-1">
+            <QrCode size={18} />
+            スマホで開く（QRコード）
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            カメラでQRコードを読み取ると、スマートフォンでこのシステムをすぐに開けます。
+          </p>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-3 py-2 max-w-sm">
+            <span className="flex-1 text-xs text-gray-600 truncate">{APP_URL}</span>
+            <button
+              onClick={handleCopyURL}
+              className="flex items-center gap-1 text-xs text-navy-700 hover:text-navy-900 font-medium flex-shrink-0 min-h-[44px] px-1"
+            >
+              {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+              {copied ? 'コピー済' : 'コピー'}
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   )
 }

@@ -125,9 +125,9 @@ export default function FacilityListPage({ filters, setFilters, onViewAvailabili
         </button>
       </div>
 
-      <div className="flex gap-5">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-5">
         {/* ===== Left: Filter Panel ===== */}
-        <aside className="w-72 flex-shrink-0">
+        <aside className="w-full md:w-72 md:flex-shrink-0">
           <div className="rounded overflow-hidden border border-gray-300 shadow-sm">
             {/* Panel header */}
             <div className="bg-navy-700 text-white flex items-center justify-between px-3 py-2">
@@ -255,7 +255,7 @@ export default function FacilityListPage({ filters, setFilters, onViewAvailabili
                         const isToday = !cell.otherMonth && cell.year === CAL_TODAY.year && cell.month === CAL_TODAY.month && cell.day === CAL_TODAY.day
                         const isSelected = calSelected && !cell.otherMonth && cell.year === calSelected.year && cell.month === calSelected.month && cell.day === calSelected.day
 
-                        let cls = 'text-[11px] py-1.5 text-center border-b border-r border-gray-100 leading-none transition-colors '
+                        let cls = 'text-[11px] min-h-[36px] py-1 text-center border-b border-r border-gray-100 leading-none transition-colors flex items-center justify-center '
                         if (disabled && isTuesday) {
                           cls += 'bg-red-50 text-red-300 cursor-default '
                         } else if (disabled) {

@@ -240,10 +240,10 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
       </div>
 
       {/* メインコンテンツ：ミニカレンダー ＋ メインカレンダー ＋ 凡例 */}
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
 
-        {/* ── 左：ミニカレンダー（日付選択） ── */}
-        <aside className="flex-shrink-0">
+        {/* ── 左：ミニカレンダー（日付選択）— モバイルでは非表示 ── */}
+        <aside className="hidden lg:block flex-shrink-0">
           <div className="text-xs font-semibold text-navy-700 mb-2">&#128197; 日付を選択</div>
           <MiniCalendar
             year={currentYear}
@@ -385,9 +385,22 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
           </div>
         </div>
 
-        {/* ── 右：凡例 ── */}
-        <aside className="flex-shrink-0">
-          <Legend />
+        {/* ── 右：凡例（モバイルでは横並び） ── */}
+        <aside className="w-full lg:flex-shrink-0 lg:w-auto">
+          <div className="lg:hidden flex items-center gap-6 bg-white border border-gray-200 rounded px-4 py-2 text-xs text-gray-700">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full border-2 border-green-500 inline-block" />予約可能
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="font-bold text-gray-500">×</span>予約済
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold px-1 rounded bg-red-100 text-red-500">休</span>休館日（火曜）
+            </span>
+          </div>
+          <div className="hidden lg:block">
+            <Legend />
+          </div>
         </aside>
       </div>
     </main>
