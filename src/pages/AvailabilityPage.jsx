@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import {
   ChevronLeft,
   ChevronRight,
@@ -153,12 +154,36 @@ function Legend() {
 /* ─────────────────────────────────────────────
    Main AvailabilityPage
 ───────────────────────────────────────────── */
-export default function AvailabilityPage({ facility, room, filters, onDateClick }) {
+export default function AvailabilityPage({ facility, room, filters, onDateClick, refreshKey }) {
   const [currentYear, setCurrentYear] = useState(TODAY.year)
   const [currentMonth, setCurrentMonth] = useState(TODAY.month)
   const [selectedDay, setSelectedDay] = useState(TODAY.day)
+  // reservedKeys: Set of "YYYY-MM-DD_timeSlot" strings fetched from Supabase
+  const [reservedKeys, setReservedKeys] = useState(new Set())
 
   const facilityName = facility?.name ?? 'ひかりプラザ・セントラル'
+  const roomNameForQuery = room?.name ?? 'メインホール'
+
+  useEffect(() => {
+    async function fetchReservations() {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('date, time_slot')
+        .eq('facility_name', facilityName)
+        .eq('room_name', roomNameForQuery)
+
+      if (error) {
+        console.error('予約データ取得エラー:', error)
+        return
+      }
+
+      const keys = new Set(data.map((r) => `${r.date}_${r.time_slot}`))
+      setReservedKeys(keys)
+    }
+
+    fetchReservations()
+  }, [facilityName, roomNameForQuery, refreshKey])
+
   const roomName = room?.name ?? 'メインホール'
 
   const timeLabel = [
@@ -205,6 +230,20 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick 
     const cellDate = new Date(cell.year, cell.month - 1, cell.day)
     const todayDate = new Date(TODAY.year, TODAY.month - 1, TODAY.day)
     if (cellDate < todayDate) return 'past'
+
+    // Check active time slots against Supabase reservations
+    const mm = String(cell.month).padStart(2, '0')
+    const dd = String(cell.day).padStart(2, '0')
+    const isoDate = `${cell.year}-${mm}-${dd}`
+    const activeSlots = [
+      filters.timeSlots.morning && 'morning',
+      filters.timeSlots.afternoon && 'afternoon',
+      filters.timeSlots.evening && 'evening',
+    ].filter(Boolean)
+
+    const isReserved = activeSlots.some((slot) => reservedKeys.has(`${isoDate}_${slot}`))
+    if (isReserved) return 'full'
+
     return generateDayStatus(cell.year, cell.month, cell.day)
   }
 

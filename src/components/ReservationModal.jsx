@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { supabase } from '../lib/supabase'
 import {
   X,
   CalendarDays,
@@ -28,7 +29,7 @@ const PURPOSES = [
   'その他',
 ]
 
-export default function ReservationModal({ date, facility, room, filters, onClose }) {
+export default function ReservationModal({ date, facility, room, filters, onClose, onReserved }) {
   const facilityName = facility?.name ?? 'ひかりプラザ・セントラル'
   const roomName = room?.name ?? 'メインホール'
 
@@ -41,6 +42,8 @@ export default function ReservationModal({ date, facility, room, filters, onClos
     timeSlot: filters.timeSlots.afternoon ? 'afternoon' : filters.timeSlots.morning ? 'morning' : 'afternoon',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
   const [errors, setErrors] = useState({})
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -54,10 +57,42 @@ export default function ReservationModal({ date, facility, room, filters, onClos
     return e
   }
 
-  function handleSubmit(e) {
+  // "2026年3月8日" → "2026-03-08"
+  function parseDateToISO(jpDate) {
+    const m = jpDate.match(/(\d+)年(\d+)月(\d+)日/)
+    if (!m) return jpDate
+    return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault()
     const e2 = validate()
     if (Object.keys(e2).length > 0) { setErrors(e2); return }
+
+    setSubmitting(true)
+    setSubmitError(null)
+
+    const { error } = await supabase.from('reservations').insert({
+      facility_name: facilityName,
+      room_name: roomName,
+      date: parseDateToISO(date),
+      time_slot: form.timeSlot,
+      user_name: form.name,
+      phone: form.phone,
+      purpose: form.purpose,
+      count: Number(form.count),
+      notes: form.notes,
+    })
+
+    setSubmitting(false)
+
+    if (error) {
+      console.error('予約保存エラー:', error)
+      setSubmitError('予約の保存に失敗しました。もう一度お試しください。')
+      return
+    }
+
+    if (onReserved) onReserved()
     setSubmitted(true)
   }
 
@@ -249,20 +284,29 @@ export default function ReservationModal({ date, facility, room, filters, onClos
               </div>
             </div>
 
+            {/* Error message */}
+            {submitError && (
+              <div className="mx-5 mb-3 bg-red-50 border border-red-200 rounded p-3 text-xs text-red-700">
+                {submitError}
+              </div>
+            )}
+
             {/* Footer buttons */}
             <div className="flex gap-3 px-5 pb-5">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 py-2.5 rounded text-sm font-semibold transition-colors"
+                disabled={submitting}
+                className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 py-2.5 rounded text-sm font-semibold transition-colors disabled:opacity-50"
               >
                 キャンセル
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-navy-800 hover:bg-navy-700 text-white py-2.5 rounded text-sm font-semibold transition-colors"
+                disabled={submitting}
+                className="flex-1 bg-navy-800 hover:bg-navy-700 text-white py-2.5 rounded text-sm font-semibold transition-colors disabled:opacity-60"
               >
-                予約申請する
+                {submitting ? '送信中...' : '予約申請する'}
               </button>
             </div>
           </form>

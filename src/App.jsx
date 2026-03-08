@@ -10,6 +10,7 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [reservationRefreshKey, setReservationRefreshKey] = useState(0)
   const [filters, setFilters] = useState({
     facility: 'ひかりプラザ・セントラル',
     date: '',
@@ -70,6 +71,7 @@ export default function App() {
           filters={filters}
           onDateClick={handleDateClick}
           onBack={() => setCurrentPage('list')}
+          refreshKey={reservationRefreshKey}
         />
       )}
 
@@ -80,6 +82,7 @@ export default function App() {
           room={selectedRoom}
           filters={filters}
           onClose={() => setShowModal(false)}
+          onReserved={() => setReservationRefreshKey((k) => k + 1)}
         />
       )}
     </div>
