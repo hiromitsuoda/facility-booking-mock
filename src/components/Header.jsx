@@ -1,7 +1,7 @@
 import React from 'react'
-import { Home, ChevronRight, HelpCircle, ExternalLink, LogIn, User } from 'lucide-react'
+import { Home, ChevronRight, LogIn, User, ShieldCheck } from 'lucide-react'
 
-export default function Header({ breadcrumbs, onBreadcrumbClick }) {
+export default function Header({ breadcrumbs, onBreadcrumbClick, onAdminClick, isAdminPage }) {
   return (
     <header>
       {/* Top system bar */}
@@ -11,6 +11,17 @@ export default function Header({ breadcrumbs, onBreadcrumbClick }) {
           <span>施設予約管理システム</span>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={onAdminClick}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded font-semibold text-xs transition-colors ${
+              isAdminPage
+                ? 'bg-yellow-400 text-navy-900'
+                : 'bg-yellow-400 text-navy-900 hover:bg-yellow-300'
+            }`}
+          >
+            <ShieldCheck size={13} />
+            <span>管理者</span>
+          </button>
           <button className="flex items-center gap-1 hover:text-gold-300 transition-colors">
             <LogIn size={13} />
             <span>ログイン</span>
