@@ -12,6 +12,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [reservationRefreshKey, setReservationRefreshKey] = useState(0)
+  const [availInitialDate, setAvailInitialDate] = useState(null)
   const [filters, setFilters] = useState({
     facility: 'ひかりプラザ・セントラル',
     date: '',
@@ -32,9 +33,10 @@ export default function App() {
           { label: '管理者画面' },
         ]
 
-  const handleViewAvailability = (facility, room) => {
+  const handleViewAvailability = (facility, room, initialDate = null) => {
     setSelectedFacility(facility)
     setSelectedRoom(room)
+    setAvailInitialDate(initialDate)
     setCurrentPage('availability')
   }
 
@@ -82,6 +84,7 @@ export default function App() {
           onDateClick={handleDateClick}
           onBack={() => setCurrentPage('list')}
           refreshKey={reservationRefreshKey}
+          initialDate={availInitialDate}
         />
       )}
 

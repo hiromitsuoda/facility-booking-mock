@@ -72,6 +72,29 @@ export default function ReservationModal({ date, facility, room, filters, onClos
     setSubmitting(true)
     setSubmitError(null)
 
+    // 重複チェック
+    const isoDate = parseDateToISO(date)
+    const { data: existing, error: checkError } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('room_name', roomName)
+      .eq('date', isoDate)
+      .eq('time_slot', form.timeSlot)
+      .limit(1)
+
+    if (checkError) {
+      console.error('重複チェックエラー:', checkError)
+      setSubmitError('予約確認中にエラーが発生しました。もう一度お試しください。')
+      setSubmitting(false)
+      return
+    }
+
+    if (existing && existing.length > 0) {
+      setSubmitError('この日時は既に予約されています。別の日時をお選びください。')
+      setSubmitting(false)
+      return
+    }
+
     const { error } = await supabase.from('reservations').insert({
       facility_name: facilityName,
       room_name: roomName,

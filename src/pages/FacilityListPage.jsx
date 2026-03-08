@@ -5,6 +5,8 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   CalendarDays,
   FileText,
   LayoutGrid,
@@ -12,10 +14,34 @@ import {
   Car,
   HelpCircle,
   ExternalLink,
-  ChevronRight,
-  CheckSquare,
-  Square,
 } from 'lucide-react'
+
+/* ─── Mini calendar helpers ─── */
+const _now = new Date()
+const CAL_TODAY = {
+  year: _now.getFullYear(),
+  month: _now.getMonth() + 1,
+  day: _now.getDate(),
+}
+const CAL_DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
+
+function buildCalGrid(year, month) {
+  const firstDow = new Date(year, month - 1, 1).getDay()
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const daysInPrev = new Date(year, month - 1, 0).getDate()
+  const cells = []
+  for (let d = firstDow - 1; d >= 0; d--) {
+    cells.push({ day: daysInPrev - d, month: month === 1 ? 12 : month - 1, year: month === 1 ? year - 1 : year, otherMonth: true })
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, month, year, otherMonth: false })
+  }
+  const remaining = 35 - cells.length
+  for (let d = 1; d <= remaining; d++) {
+    cells.push({ day: d, month: month === 12 ? 1 : month + 1, year: month === 12 ? year + 1 : year, otherMonth: true })
+  }
+  return cells
+}
 
 const FACILITY = {
   name: 'ひかりプラザ・セントラル',
@@ -39,19 +65,40 @@ export default function FacilityListPage({ filters, setFilters, onViewAvailabili
   const [filterOpen, setFilterOpen] = useState(true)
   const [facilityInput, setFacilityInput] = useState('')
   const [showAllRooms, setShowAllRooms] = useState(false)
-  const [checkedRooms, setCheckedRooms] = useState(new Set())
 
-  const toggleRoom = (id) => {
-    setCheckedRooms((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+  // Mini calendar state
+  const [calYear, setCalYear] = useState(CAL_TODAY.year)
+  const [calMonth, setCalMonth] = useState(CAL_TODAY.month)
+  const [calSelected, setCalSelected] = useState(null) // {year, month, day}
+
+  function calPrevMonth() {
+    if (calMonth === 1) { setCalMonth(12); setCalYear(y => y - 1) }
+    else setCalMonth(m => m - 1)
+    setCalSelected(null)
+  }
+  function calNextMonth() {
+    if (calMonth === 12) { setCalMonth(1); setCalYear(y => y + 1) }
+    else setCalMonth(m => m + 1)
+    setCalSelected(null)
+  }
+  const calMaxDate = new Date(CAL_TODAY.year, CAL_TODAY.month - 1 + 2, CAL_TODAY.day)
+
+  function isCalDisabled(cell) {
+    if (cell.otherMonth) return true
+    const d = new Date(cell.year, cell.month - 1, cell.day)
+    const today = new Date(CAL_TODAY.year, CAL_TODAY.month - 1, CAL_TODAY.day)
+    if (d < today || d > calMaxDate) return true
+    if (d.getDay() === 2) return true // 火曜休館
+    return false
   }
 
-  const handleSearch = () => {
-    // mock search - just close the filter on mobile
+  function handleCalSelect(cell) {
+    if (isCalDisabled(cell)) return
+    const selected = { year: cell.year, month: cell.month, day: cell.day }
+    setCalSelected(selected)
+    onViewAvailability(FACILITY, null, selected)
   }
+  const calCells = buildCalGrid(calYear, calMonth)
 
   const visibleRooms = showAllRooms
     ? FACILITY.rooms
@@ -163,21 +210,89 @@ export default function FacilityListPage({ filters, setFilters, onViewAvailabili
                   </div>
                 </div>
 
-                {/* 利用日時 */}
+                {/* 利用日時 — インラインカレンダー */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-navy-700">
                     <Calendar size={13} />
                     <span>利用日時</span>
                   </div>
-                  <div className="flex items-center gap-1 bg-white border border-gray-300 rounded px-2 py-1.5">
-                    <input
-                      className="flex-1 outline-none text-xs text-gray-500 bg-transparent"
-                      placeholder="例)20190501 または 201905"
-                      value={filters.date}
-                      onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value }))}
-                    />
-                    <CalendarDays size={14} className="text-gray-400 flex-shrink-0" />
+
+                  {/* ── 7列グリッドカレンダー ── */}
+                  <div className="bg-white border border-gray-300 rounded overflow-hidden">
+                    {/* 月ナビ */}
+                    <div className="flex items-center bg-navy-700 text-white">
+                      <button onClick={calPrevMonth} className="px-2 py-1.5 hover:bg-navy-600 transition-colors">
+                        <ChevronLeft size={12} />
+                      </button>
+                      <div className="flex-1 text-center text-xs font-semibold py-1.5">
+                        {calYear}年 {calMonth}月
+                      </div>
+                      <button onClick={calNextMonth} className="px-2 py-1.5 hover:bg-navy-600 transition-colors">
+                        <ChevronRight size={12} />
+                      </button>
+                    </div>
+
+                    {/* 曜日ヘッダー */}
+                    <div className="grid grid-cols-7 bg-navy-600">
+                      {CAL_DAY_NAMES.map((d, i) => (
+                        <div
+                          key={d}
+                          className={`text-center text-[9px] font-semibold py-1 ${
+                            i === 0 ? 'text-red-300' : i === 6 ? 'text-blue-200' : 'text-white'
+                          }`}
+                        >
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 日付グリッド（7列×5行） */}
+                    <div className="grid grid-cols-7">
+                      {calCells.map((cell, idx) => {
+                        const dow = idx % 7
+                        const disabled = isCalDisabled(cell)
+                        const isTuesday = !cell.otherMonth && new Date(cell.year, cell.month - 1, cell.day).getDay() === 2
+                        const isToday = !cell.otherMonth && cell.year === CAL_TODAY.year && cell.month === CAL_TODAY.month && cell.day === CAL_TODAY.day
+                        const isSelected = calSelected && !cell.otherMonth && cell.year === calSelected.year && cell.month === calSelected.month && cell.day === calSelected.day
+
+                        let cls = 'text-[11px] py-1.5 text-center border-b border-r border-gray-100 leading-none transition-colors '
+                        if (disabled && isTuesday) {
+                          cls += 'bg-red-50 text-red-300 cursor-default '
+                        } else if (disabled) {
+                          cls += 'text-gray-300 cursor-default '
+                        } else if (isSelected) {
+                          cls += 'bg-navy-700 text-white font-bold cursor-pointer '
+                        } else if (isToday) {
+                          cls += 'bg-yellow-100 font-bold cursor-pointer '
+                          cls += dow === 0 ? 'text-red-500 ' : dow === 6 ? 'text-blue-600 ' : 'text-navy-800 '
+                        } else {
+                          cls += 'hover:bg-navy-50 cursor-pointer '
+                          cls += dow === 0 ? 'text-red-500 ' : dow === 6 ? 'text-blue-600 ' : 'text-navy-800 '
+                        }
+
+                        return (
+                          <button
+                            key={idx}
+                            disabled={disabled}
+                            onClick={() => handleCalSelect(cell)}
+                            className={cls}
+                          >
+                            {cell.day}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* 選択中の日付表示 */}
+                    {calSelected && (
+                      <div className="bg-navy-50 border-t border-navy-200 px-2 py-1.5 text-[11px] text-navy-700 font-semibold text-center">
+                        {calSelected.year}年{calSelected.month}月{calSelected.day}日 を選択中
+                      </div>
+                    )}
                   </div>
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    日付をクリックするとその日の空き状況を表示します
+                  </p>
 
                   {/* Time slot checkboxes */}
                   <div className="flex items-center gap-4 pl-1">
@@ -205,14 +320,6 @@ export default function FacilityListPage({ filters, setFilters, onViewAvailabili
                     })}
                   </div>
                 </div>
-
-                {/* Search button */}
-                <button
-                  onClick={handleSearch}
-                  className="w-full bg-navy-800 hover:bg-navy-700 text-white py-2 rounded text-sm font-semibold transition-colors"
-                >
-                  検索
-                </button>
 
                 {/* Other conditions link */}
                 <div className="text-center">
@@ -296,15 +403,6 @@ export default function FacilityListPage({ filters, setFilters, onViewAvailabili
                       : ''
                   }`}
                 >
-                  {/* Checkbox */}
-                  <button onClick={() => toggleRoom(room.id)} className="flex-shrink-0 text-gray-400 hover:text-navy-600">
-                    {checkedRooms.has(room.id) ? (
-                      <CheckSquare size={16} className="text-navy-600" />
-                    ) : (
-                      <Square size={16} />
-                    )}
-                  </button>
-
                   {/* Status dot */}
                   <div className="flex-shrink-0 w-5 h-5 rounded-full border-2 border-green-500 flex items-center justify-center">
                     <div className="w-2 h-2 rounded-full bg-green-500" />

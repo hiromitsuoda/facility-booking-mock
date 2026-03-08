@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import MiniCalendar from '../components/MiniCalendar'
 import {
   ChevronLeft,
   ChevronRight,
@@ -7,38 +8,13 @@ import {
   HelpCircle,
   X,
   LayoutGrid,
-  Phone,
-  Building2,
-  Clock,
-  Target,
   Circle,
-  Minus,
-  BedDouble,
-  Wrench,
-  Users,
   ExternalLink,
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────
-   Deterministic pseudo-random status generator
-   Status keys: 'available' | 'full' | 'closed' | 'past' |
-                'phone' | 'counter' | 'lottery' | 'maintenance' |
-                'open' | 'unavailable'
+   定数
 ───────────────────────────────────────────── */
-function generateDayStatus(year, month, day) {
-  // Simple reproducible hash — same date always yields the same status
-  const h = Math.abs(((year * 13 + month) * 31 + day) * 17) % 100
-  if (h < 38) return 'available'
-  if (h < 62) return 'full'
-  if (h < 67) return 'closed'
-  if (h < 72) return 'phone'
-  if (h < 77) return 'counter'
-  if (h < 82) return 'lottery'
-  if (h < 88) return 'maintenance'
-  if (h < 94) return 'open'
-  return 'unavailable'
-}
-
 const _now = new Date()
 const TODAY = {
   year: _now.getFullYear(),
@@ -47,105 +23,95 @@ const TODAY = {
 }
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
 
-/* ─────────────────────────────────────────────
-   Status icon/label renderer
-───────────────────────────────────────────── */
-function StatusMark({ status, size = 'md' }) {
-  const sz = size === 'sm' ? 12 : 16
-  const textCls = size === 'sm' ? 'text-[10px]' : 'text-xs'
+// 予約可能期間：今日から2か月後の同日まで
+function getMaxDate() {
+  return new Date(TODAY.year, TODAY.month - 1 + 2, TODAY.day)
+}
 
+/* ─────────────────────────────────────────────
+   ステータス判定
+   'available' | 'full' | 'closed' | 'past' | 'locked'
+───────────────────────────────────────────── */
+function getStatusForCell(cell, reservedKeys, filters) {
+  if (cell.otherMonth) return null
+
+  const cellDate = new Date(cell.year, cell.month - 1, cell.day)
+  const todayDate = new Date(TODAY.year, TODAY.month - 1, TODAY.day)
+
+  // 過去
+  if (cellDate < todayDate) return 'past'
+
+  // 2か月超はロック
+  if (cellDate > getMaxDate()) return 'locked'
+
+  // 火曜日は休館日（getDay() === 2）
+  if (cellDate.getDay() === 2) return 'closed'
+
+  // Supabase 予約済みチェック
+  const mm = String(cell.month).padStart(2, '0')
+  const dd = String(cell.day).padStart(2, '0')
+  const isoDate = `${cell.year}-${mm}-${dd}`
+  const activeSlots = [
+    filters.timeSlots.morning && 'morning',
+    filters.timeSlots.afternoon && 'afternoon',
+    filters.timeSlots.evening && 'evening',
+  ].filter(Boolean)
+
+  if (activeSlots.some((slot) => reservedKeys.has(`${isoDate}_${slot}`))) return 'full'
+
+  return 'available'
+}
+
+/* ─────────────────────────────────────────────
+   ステータスアイコン（3種 + past/locked）
+───────────────────────────────────────────── */
+function StatusMark({ status }) {
   switch (status) {
     case 'available':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Circle size={sz} className="text-green-600" strokeWidth={2.5} />
-        </div>
-      )
+      return <Circle size={20} className="text-green-500" strokeWidth={2.5} />
     case 'full':
-      return <span className={`font-bold text-gray-700 ${size === 'md' ? 'text-base' : 'text-sm'}`}>×</span>
+      return <span className="text-lg font-bold text-gray-500">×</span>
     case 'closed':
       return (
-        <div className="flex flex-col items-center gap-0.5">
-          <BedDouble size={sz} className="text-teal-600" />
-          <span className={`${textCls} text-teal-700 leading-none`}>休</span>
-        </div>
+        <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-500 leading-none">
+          休
+        </span>
       )
     case 'past':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Clock size={sz} className="text-gray-400" />
-          <span className={`${textCls} text-gray-400 leading-none`}>終</span>
-        </div>
-      )
-    case 'phone':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Phone size={sz} className="text-navy-600" />
-        </div>
-      )
-    case 'counter':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Building2 size={sz} className="text-navy-600" />
-        </div>
-      )
-    case 'lottery':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Target size={sz} className="text-red-500" />
-        </div>
-      )
-    case 'maintenance':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Wrench size={sz} className="text-gray-500" />
-        </div>
-      )
-    case 'open':
-      return (
-        <div className="flex flex-col items-center gap-0.5">
-          <Users size={sz} className="text-blue-500" />
-        </div>
-      )
-    case 'unavailable':
-      return <Minus size={sz} className="text-gray-400" />
+      return <span className="text-xs text-gray-300">－</span>
+    case 'locked':
+      return <span className="text-xs text-gray-300">－</span>
     default:
       return null
   }
 }
 
 /* ─────────────────────────────────────────────
-   Legend panel
+   凡例（3種のみ）
 ───────────────────────────────────────────── */
 function Legend() {
-  const items = [
-    { icon: <Circle size={14} className="text-green-600" strokeWidth={2.5} />, label: '：利用可能' },
-    { icon: <div className="flex items-center gap-0.5"><Clock size={12} className="text-gray-400" /><span className="text-[10px] text-gray-400">前</span></div>, label: '：公開前' },
-    { icon: <Phone size={14} className="text-navy-600" />, label: '：電話受付' },
-    { icon: <div className="flex items-center gap-0.5"><Clock size={12} className="text-gray-400" /><span className="text-[10px] text-gray-400">前</span></div>, label: '：受付前' },
-    { icon: <Building2 size={14} className="text-navy-600" />, label: '：窓口受付' },
-    { icon: <div className="flex items-center gap-0.5"><Clock size={12} className="text-gray-400" /><span className="text-[10px] text-gray-400">終</span></div>, label: '：公開終了' },
-    { icon: <Target size={14} className="text-red-500" />, label: '：抽選申込可' },
-    { icon: <div className="flex items-center gap-0.5"><Clock size={12} className="text-gray-400" /><span className="text-[10px] text-gray-400">終</span></div>, label: '：受付終了' },
-    { icon: <Circle size={14} className="text-gray-400" strokeWidth={1.5} />, label: '：空き状況のみ' },
-    { icon: <Minus size={14} className="text-gray-400" />, label: '：利用不可' },
-    { icon: <span className="font-bold text-gray-700 text-sm">×</span>, label: '：空きなし' },
-    { icon: <Users size={14} className="text-blue-500" />, label: '：一般開放' },
-    { icon: <BedDouble size={14} className="text-teal-600" />, label: '：休館日' },
-    { icon: <Wrench size={14} className="text-gray-500" />, label: '：設備保守' },
-    { icon: <Target size={14} className="text-orange-400" />, label: '：抽選待ち' },
-  ]
-
   return (
-    <div className="border border-gray-300 rounded bg-white p-3 min-w-[200px]">
+    <div className="border border-gray-300 rounded bg-white p-3 w-36">
       <div className="font-semibold text-sm text-navy-800 mb-2 pb-1 border-b border-gray-200">凡例</div>
-      <div className="space-y-1.5">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-1.5 text-xs text-gray-700">
-            <span className="w-5 flex items-center justify-center flex-shrink-0">{item.icon}</span>
-            <span>{item.label}</span>
-          </div>
-        ))}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2 text-xs text-gray-700">
+          <Circle size={15} className="text-green-500 flex-shrink-0" strokeWidth={2.5} />
+          <span>予約可能</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-700">
+          <span className="font-bold text-gray-500 text-sm w-4 text-center flex-shrink-0">×</span>
+          <span>予約済</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-700">
+          <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-500 leading-none flex-shrink-0">
+            休
+          </span>
+          <span>休館日（火曜）</span>
+        </div>
+      </div>
+      <div className="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-400 leading-relaxed">
+        予約可能期間:<br />
+        本日〜2か月後
       </div>
     </div>
   )
@@ -154,16 +120,17 @@ function Legend() {
 /* ─────────────────────────────────────────────
    Main AvailabilityPage
 ───────────────────────────────────────────── */
-export default function AvailabilityPage({ facility, room, filters, onDateClick, refreshKey }) {
-  const [currentYear, setCurrentYear] = useState(TODAY.year)
-  const [currentMonth, setCurrentMonth] = useState(TODAY.month)
-  const [selectedDay, setSelectedDay] = useState(TODAY.day)
-  // reservedKeys: Set of "YYYY-MM-DD_timeSlot" strings fetched from Supabase
+export default function AvailabilityPage({ facility, room, filters, onDateClick, refreshKey, initialDate }) {
+  const [currentYear, setCurrentYear] = useState(initialDate?.year ?? TODAY.year)
+  const [currentMonth, setCurrentMonth] = useState(initialDate?.month ?? TODAY.month)
+  const [selectedDay, setSelectedDay] = useState(initialDate?.day ?? TODAY.day)
   const [reservedKeys, setReservedKeys] = useState(new Set())
 
   const facilityName = facility?.name ?? 'ひかりプラザ・セントラル'
   const roomNameForQuery = room?.name ?? 'メインホール'
+  const roomName = room?.name ?? 'メインホール'
 
+  // Supabase から予約データ取得
   useEffect(() => {
     async function fetchReservations() {
       const { data, error } = await supabase
@@ -176,99 +143,54 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
         console.error('予約データ取得エラー:', error)
         return
       }
-
-      const keys = new Set(data.map((r) => `${r.date}_${r.time_slot}`))
-      setReservedKeys(keys)
+      setReservedKeys(new Set(data.map((r) => `${r.date}_${r.time_slot}`)))
     }
-
     fetchReservations()
   }, [facilityName, roomNameForQuery, refreshKey])
-
-  const roomName = room?.name ?? 'メインホール'
 
   const timeLabel = [
     filters.timeSlots.morning && '午前',
     filters.timeSlots.afternoon && '午後',
     filters.timeSlots.evening && '夜間',
-  ]
-    .filter(Boolean)
-    .join('・') || '午後'
+  ].filter(Boolean).join('・') || '午後'
 
-  /* Build calendar grid */
+  /* カレンダーグリッド生成 */
   function buildCalendarGrid(year, month) {
-    // First day of month (0=Sun)
     const firstDow = new Date(year, month - 1, 1).getDay()
-    // Days in month
     const daysInMonth = new Date(year, month, 0).getDate()
-    // Days in previous month
     const daysInPrevMonth = new Date(year, month - 1, 0).getDate()
-
     const cells = []
 
-    // Leading days from prev month
     for (let d = firstDow - 1; d >= 0; d--) {
       cells.push({ day: daysInPrevMonth - d, month: month - 1, year: month === 1 ? year - 1 : year, otherMonth: true })
     }
-
-    // Current month days
     for (let d = 1; d <= daysInMonth; d++) {
       cells.push({ day: d, month, year, otherMonth: false })
     }
-
-    // Trailing days to fill 5 rows (35 cells)
     const remaining = 35 - cells.length
     for (let d = 1; d <= remaining; d++) {
       cells.push({ day: d, month: month + 1, year: month === 12 ? year + 1 : year, otherMonth: true })
     }
-
     return cells
   }
 
   const cells = buildCalendarGrid(currentYear, currentMonth)
 
-  function getStatus(cell) {
-    const cellDate = new Date(cell.year, cell.month - 1, cell.day)
-    const todayDate = new Date(TODAY.year, TODAY.month - 1, TODAY.day)
-    if (cellDate < todayDate) return 'past'
-
-    // Check active time slots against Supabase reservations
-    const mm = String(cell.month).padStart(2, '0')
-    const dd = String(cell.day).padStart(2, '0')
-    const isoDate = `${cell.year}-${mm}-${dd}`
-    const activeSlots = [
-      filters.timeSlots.morning && 'morning',
-      filters.timeSlots.afternoon && 'afternoon',
-      filters.timeSlots.evening && 'evening',
-    ].filter(Boolean)
-
-    const isReserved = activeSlots.some((slot) => reservedKeys.has(`${isoDate}_${slot}`))
-    if (isReserved) return 'full'
-
-    return generateDayStatus(cell.year, cell.month, cell.day)
-  }
-
   function isToday(cell) {
-    return (
-      !cell.otherMonth &&
-      cell.day === TODAY.day &&
-      cell.month === TODAY.month &&
-      cell.year === TODAY.year
-    )
+    return !cell.otherMonth && cell.day === TODAY.day && cell.month === TODAY.month && cell.year === TODAY.year
   }
 
   function isSelected(cell) {
-    return !cell.otherMonth && cell.day === selectedDay && currentMonth === currentMonth
+    return !cell.otherMonth && cell.day === selectedDay
   }
 
   function handleCellClick(cell) {
     if (cell.otherMonth) return
-    const status = getStatus(cell)
-    if (status === 'past') return
+    const status = getStatusForCell(cell, reservedKeys, filters)
+    if (status !== 'available') return
     setSelectedDay(cell.day)
-    if (status === 'available') {
-      const dateStr = `${cell.year}年${cell.month}月${cell.day}日`
-      onDateClick(dateStr)
-    }
+    const dateStr = `${cell.year}年${cell.month}月${cell.day}日`
+    onDateClick(dateStr)
   }
 
   function prevMonth() {
@@ -283,11 +205,9 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
     setSelectedDay(null)
   }
 
-  const DOW_COLORS = ['text-red-500', 'text-navy-800', 'text-navy-800', 'text-navy-800', 'text-navy-800', 'text-navy-800', 'text-blue-600']
-
   return (
     <main className="max-w-6xl mx-auto px-4 py-6">
-      {/* Page title */}
+      {/* ページタイトル */}
       <div className="flex items-center justify-between mb-4 border-b-2 border-dashed border-navy-200 pb-3">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-navy-800">
           <LayoutGrid size={26} className="text-navy-700" />
@@ -300,20 +220,18 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
         </button>
       </div>
 
-      {/* Facility name banner */}
+      {/* 施設名バナー */}
       <div className="bg-navy-100 border border-navy-200 rounded px-4 py-2 mb-4">
         <span className="text-navy-800 font-bold text-lg underline">{facilityName}</span>
       </div>
 
-      {/* Active filter bar */}
+      {/* 検索条件バー */}
       <div className="flex items-center justify-between bg-cream-50 border border-gray-200 rounded px-3 py-2 mb-4 text-sm">
         <div className="flex items-center gap-1.5 text-navy-700">
           <Search size={13} />
           <span>
             室場：<span className="text-navy-600 underline cursor-pointer">{roomName}</span>
             &ensp;、&ensp;利用時間帯：<span className="text-navy-600 underline cursor-pointer">{timeLabel}</span>
-            &ensp;
-            <ExternalLink size={11} className="inline text-gray-400" />
           </span>
         </div>
         <button className="text-gray-400 hover:text-gray-600">
@@ -321,30 +239,38 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
         </button>
       </div>
 
-      {/* Filter in-use badge */}
-      <div className="flex items-center gap-3 mb-4">
-        <button className="flex items-center gap-1.5 border border-navy-300 bg-white rounded px-3 py-1 text-xs text-navy-700 hover:bg-navy-50">
-          <Search size={12} />
-          絞り込み中
-          <ExternalLink size={10} />
-        </button>
-        <button className="flex items-center gap-1 text-navy-600 text-xs hover:underline">
-          <HelpCircle size={12} />
-          使い方
-        </button>
-      </div>
-
-      {/* Main content: Calendar + Legend */}
+      {/* メインコンテンツ：ミニカレンダー ＋ メインカレンダー ＋ 凡例 */}
       <div className="flex gap-5 items-start">
-        {/* Calendar */}
+
+        {/* ── 左：ミニカレンダー（日付選択） ── */}
+        <aside className="flex-shrink-0">
+          <div className="text-xs font-semibold text-navy-700 mb-2">&#128197; 日付を選択</div>
+          <MiniCalendar
+            year={currentYear}
+            month={currentMonth}
+            selectedDay={selectedDay}
+            reservedKeys={reservedKeys}
+            filters={filters}
+            onSelectDate={(y, m, d) => {
+              setCurrentYear(y)
+              setCurrentMonth(m)
+              setSelectedDay(d)
+            }}
+            onPrevMonth={prevMonth}
+            onNextMonth={nextMonth}
+          />
+          <p className="text-[10px] text-gray-400 mt-2 w-44 leading-relaxed">
+            赤点：予約済み日付<br />
+            火曜日は休館日です
+          </p>
+        </aside>
+
+        {/* ── 中央：メインカレンダー ── */}
         <div className="flex-1 min-w-0">
           <div className="border border-gray-300 rounded overflow-hidden shadow-sm">
-            {/* Month navigation */}
+            {/* 月ナビゲーション */}
             <div className="flex items-center bg-navy-800 text-white">
-              <button
-                onClick={prevMonth}
-                className="flex items-center gap-1 px-4 py-2.5 hover:bg-navy-700 transition-colors text-sm"
-              >
+              <button onClick={prevMonth} className="flex items-center gap-1 px-4 py-2.5 hover:bg-navy-700 transition-colors text-sm">
                 <ChevronLeft size={15} />
                 {currentMonth === 1 ? 12 : currentMonth - 1}月
               </button>
@@ -358,7 +284,7 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
                     setCurrentMonth(Number(m))
                   }}
                 >
-                  {Array.from({ length: 24 }, (_, i) => {
+                  {Array.from({ length: 3 }, (_, i) => {
                     const d = new Date(TODAY.year, TODAY.month - 1 + i)
                     return { year: d.getFullYear(), month: d.getMonth() + 1 }
                   }).map(({ year, month }) => (
@@ -368,16 +294,13 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
                   ))}
                 </select>
               </div>
-              <button
-                onClick={nextMonth}
-                className="flex items-center gap-1 px-4 py-2.5 hover:bg-navy-700 transition-colors text-sm"
-              >
+              <button onClick={nextMonth} className="flex items-center gap-1 px-4 py-2.5 hover:bg-navy-700 transition-colors text-sm">
                 {currentMonth === 12 ? 1 : currentMonth + 1}月
                 <ChevronRight size={15} />
               </button>
             </div>
 
-            {/* Day names header */}
+            {/* 曜日ヘッダー */}
             <div className="grid grid-cols-7 bg-navy-700">
               {DAY_NAMES.map((name, i) => (
                 <div
@@ -397,25 +320,30 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
               ))}
             </div>
 
-            {/* Date grid */}
+            {/* 日付グリッド */}
             <div className="grid grid-cols-7">
               {cells.map((cell, idx) => {
                 const dow = idx % 7
-                const status = getStatus(cell)
+                const status = getStatusForCell(cell, reservedKeys, filters)
                 const today = isToday(cell)
                 const selected = isSelected(cell) && cell.day === selectedDay
-                const isPast = status === 'past'
-                const isClickable = !cell.otherMonth && !isPast
+                const isClickable = status === 'available'
 
+                // セル背景
                 let cellBg = ''
                 if (cell.otherMonth) cellBg = 'bg-gray-100'
-                else if (selected && today) cellBg = 'cal-cell-selected'
-                else if (today) cellBg = 'cal-cell-today'
+                else if (status === 'closed') cellBg = 'bg-red-50'
+                else if (status === 'past' || status === 'locked') cellBg = 'bg-gray-50'
+                else if (selected && today) cellBg = 'bg-navy-200'
+                else if (today) cellBg = 'bg-yellow-50'
                 else if (selected) cellBg = 'bg-navy-100'
                 else cellBg = 'bg-white'
 
+                // 日付数字の色
                 const dayColor = cell.otherMonth
-                  ? 'text-gray-400'
+                  ? 'text-gray-300'
+                  : status === 'past' || status === 'locked'
+                  ? 'text-gray-300'
                   : dow === 0
                   ? 'text-red-500'
                   : dow === 6
@@ -429,34 +357,35 @@ export default function AvailabilityPage({ facility, room, filters, onDateClick,
                     className={`
                       border-b border-r border-gray-200 min-h-[72px] p-1.5 flex flex-col items-center
                       ${cellBg}
-                      ${isClickable ? 'cal-cell' : ''}
-                      ${isPast ? 'cursor-default' : ''}
+                      ${isClickable ? 'cursor-pointer hover:bg-green-50 transition-colors' : 'cursor-default'}
                     `}
                   >
-                    {/* Day number */}
                     <span className={`text-sm font-semibold mb-1 ${dayColor}`}>
-                      {cell.day}
+                      {cell.otherMonth ? '' : cell.day}
                     </span>
-
-                    {/* Status icon */}
                     <div className="flex items-center justify-center flex-1">
-                      <StatusMark status={status} size="md" />
+                      {!cell.otherMonth && <StatusMark status={status} />}
                     </div>
                   </div>
                 )
               })}
             </div>
 
-            {/* Selected date bar */}
+            {/* 選択日バー */}
             {selectedDay && (
-              <div className="bg-gold-300 text-navy-900 text-center py-1.5 text-sm font-semibold">
-                {currentMonth}/{selectedDay}({DAY_NAMES[new Date(currentYear, currentMonth - 1, selectedDay).getDay()]})&nbsp;選択中
+              <div className="bg-yellow-100 text-navy-900 text-center py-1.5 text-sm font-semibold border-t border-yellow-200">
+                {currentMonth}/{selectedDay}（{DAY_NAMES[new Date(currentYear, currentMonth - 1, selectedDay).getDay()]}）選択中
               </div>
             )}
           </div>
+
+          {/* 運用ルール注記 */}
+          <div className="mt-3 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">
+            ※ 毎週火曜日は休館日です。予約可能期間は本日から2か月後までです。
+          </div>
         </div>
 
-        {/* Legend */}
+        {/* ── 右：凡例 ── */}
         <aside className="flex-shrink-0">
           <Legend />
         </aside>
